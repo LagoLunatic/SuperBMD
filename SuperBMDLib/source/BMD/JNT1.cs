@@ -72,6 +72,31 @@ namespace SuperBMDLib.BMD
             }*/
         }
 
+        public void SetParents(INF1 scenegraph)
+        {
+            foreach (Rigging.Bone joint in FlatSkeleton)
+            {
+                int jointIndex = FlatSkeleton.IndexOf(joint);
+                Scenegraph.SceneNode jointNode = scenegraph.FlatNodes.Find(x => x.Type == Scenegraph.Enums.NodeType.Joint && x.Index == jointIndex);
+                Scenegraph.SceneNode parentNode = jointNode.Parent;
+                if (parentNode == null)
+                    continue;
+
+                while (parentNode.Parent != null)
+                {
+                    if (parentNode.Type == Scenegraph.Enums.NodeType.Joint)
+                        break;
+                    parentNode = parentNode.Parent;
+                }
+
+                if (parentNode.Type == Scenegraph.Enums.NodeType.Joint)
+                {
+                    Rigging.Bone parentJoint = FlatSkeleton[parentNode.Index];
+                    joint.Parent = parentJoint;
+                }
+            }
+        }
+
         public JNT1(Assimp.Scene scene, VTX1 vertexData)
         {
             BoneNameIndices = new Dictionary<string, int>();

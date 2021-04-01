@@ -12,7 +12,7 @@ namespace SuperBMDLib.Rigging
     public class Bone
     {
         public string Name { get; private set; }
-        public Bone Parent { get; private set; }
+        public Bone Parent { get; set; }
         public List<Bone> Children { get; private set; }
         public Matrix4 InverseBindMatrix { get; private set; }
         public Matrix4 TransformationMatrix { get; private set; }

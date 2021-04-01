@@ -8,6 +8,7 @@ using Assimp;
 using System.IO;
 using SuperBMDLib.BMD;
 using System.Text.RegularExpressions;
+using SuperBMDLib.Util;
 
 namespace SuperBMDLib
 {
@@ -82,6 +83,7 @@ namespace SuperBMDLib
             SkinningEnvelopes = new EVP1(reader, (int)reader.BaseStream.Position);
             PartialWeightData = new DRW1(reader, (int)reader.BaseStream.Position);
             Joints            = new JNT1(reader, (int)reader.BaseStream.Position);
+            Joints.SetParents(Scenegraph);
             SkinningEnvelopes.SetInverseBindMatrices(Joints.FlatSkeleton);
             Shapes            = SHP1.Create(reader, (int)reader.BaseStream.Position);
             Shapes.SetVertexWeights(SkinningEnvelopes, PartialWeightData);
@@ -238,20 +240,70 @@ namespace SuperBMDLib
                 }
                 else if (line.Contains("<node"))
                 {
-                    Regex reg = new Regex("^( +)<node id=\"([^\"]+)\" +name=\"[^\"]+\" +type=\"NODE\">$");
+                    Regex reg = new Regex("^( +)<node id=\"([^\"]+)\" +(?:sid=\"[^\"]+\" +)?name=\"[^\"]+\" +type=\"(NODE|JOINT)\">$");
                     Match match = reg.Match(line);
 
                     if (match.Success)
                     {
                         string indentation = match.Groups[1].Value;
                         string joint_name = match.Groups[2].Value;
-                        if (Joints.FlatSkeleton.Exists(x => x.Name == joint_name))
+                        string node_type = match.Groups[3].Value;
+                        Rigging.Bone joint = Joints.FlatSkeleton.Find(x => x.Name == joint_name);
+
+                        if (joint != null && node_type == "NODE")
                         {
                             string jointLine = indentation + $"<node id=\"{joint_name}\" name=\"{joint_name}\" sid=\"{joint_name}\" type=\"JOINT\">";
                             test.WriteLine(jointLine);
                         } else
                         {
                             test.WriteLine(line);
+                        }
+
+                        if (joint != null)
+                        {
+                            //OpenTK.Vector3 tailTrans = joint.TransformationMatrix.ExtractTranslation();
+                            //OpenTK.Vector3 headTrans = tailTrans + new OpenTK.Vector3(0, 0, 10);
+                            //OpenTK.Matrix4 cumulativeMtx = joint.TransformationMatrix;
+                            //Rigging.Bone curJoint = joint.Parent;
+                            //while (curJoint != null)
+                            //{
+                            //    if (!curJoint.Name.EndsWith("_chn"))
+                            //        cumulativeMtx *= curJoint.TransformationMatrix;
+                            //    curJoint = curJoint.Parent;
+                            //}
+                            //OpenTK.Quaternion jointRot = cumulativeMtx.ExtractRotation();
+
+                            OpenTK.Matrix4 matLocalToParent;
+                            if (joint.Parent == null)
+                            {
+                                matLocalToParent = joint.TransformationMatrix;
+                            } else
+                            {
+                                matLocalToParent = joint.Parent.TransformationMatrix.Inverted() * joint.TransformationMatrix;
+                            }
+
+                            OpenTK.Matrix4 matrixToUse = joint.TransformationMatrix;
+                            //OpenTK.Matrix4 matrixToUse = cumulativeMtx;
+                            //OpenTK.Matrix4 matrixToUse = matLocalToParent;
+
+                            OpenTK.Vector3 headTrans = new OpenTK.Vector3(0, 10, 0);
+                            //OpenTK.Vector3 headTrans = new OpenTK.Vector3(0, 0, 10);
+
+                            OpenTK.Quaternion jointRot = matrixToUse.ExtractRotation();
+                            OpenTK.Matrix4 jointRotMtx = OpenTK.Matrix4.CreateFromQuaternion(jointRot);
+                            OpenTK.Vector3 eulerRot = jointRot.ToEulerAngles();
+                            headTrans = OpenTK.Vector3.Transform(headTrans, jointRotMtx);
+                            double roll = eulerRot.Y / (180 / Math.PI);
+
+                            test.WriteLine(indentation + $"  <extra>");
+                            test.WriteLine(indentation + $"    <technique profile=\"blender\">");
+                            test.WriteLine(indentation + $"      <layer sid=\"layer\" type=\"string\">{0}</layer>");
+                            test.WriteLine(indentation + $"      <roll sid=\"roll\" type=\"float\">{roll}</roll>");
+                            test.WriteLine(indentation + $"      <tip_x sid=\"tip_x\" type=\"float\">{headTrans.X}</tip_x>");
+                            test.WriteLine(indentation + $"      <tip_y sid=\"tip_y\" type=\"float\">{headTrans.Y}</tip_y>");
+                            test.WriteLine(indentation + $"      <tip_z sid=\"tip_z\" type=\"float\">{headTrans.Z}</tip_z>");
+                            test.WriteLine(indentation + $"    </technique>");
+                            test.WriteLine(indentation + $"  </extra>");
                         }
                     } else
                     {
