@@ -12,7 +12,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Install nuget dependencies
@@ -22,7 +22,7 @@ jobs:
       - name: Build
         run: msbuild SuperBMD.sln /t:Build /property:Configuration=Release
       - name: Upload build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SuperBMD
           path: SuperBMD\bin\Release\*
